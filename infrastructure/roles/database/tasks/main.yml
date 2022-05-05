@@ -34,8 +34,8 @@
 - name: 'add permissions for application user'
   lineinfile:
     dest=/var/lib/pgsql/10/data/pg_hba.conf
-    line="host {{database.name}} {{database.thesis_user}} 0.0.0.0/0 md5 {{'#'}} {{database.name}}-{{database.thesis_user}}"
-    regexp='{{database.name}}-{{database.thesis_user}}'
+    line="host {{database.name}} {{database.news_compare_user}} 0.0.0.0/0 md5 {{'#'}} {{database.name}}-{{database.news_compare_user}}"
+    regexp='{{database.name}}-{{database.news_compare_user}}'
     insertafter='# TYPE'
     state=present
   notify: restart postgresql
@@ -57,7 +57,7 @@
 - name: 'add application PostgreSQL user'
   postgresql_user:
     db={{database.name}}
-    name={{database.thesis_user}}
-    password={{database.thesis_password}}
+    name={{database.news_compare_user}}
+    password={{database.news_compare_password}}
   become: true
   become_user: postgres

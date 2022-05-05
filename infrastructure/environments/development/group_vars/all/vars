@@ -1,6 +1,6 @@
 env: development
 
 database:
-    name: thesis-{{env}}
-    thesis_user: thesis_user
-    thesis_password: thesis_password
+    name: news-compare-{{env}}
+    news_compare_user: news_compare_user
+    news_compare_password: news_compare_password
