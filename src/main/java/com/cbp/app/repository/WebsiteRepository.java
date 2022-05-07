@@ -38,6 +38,8 @@ public interface WebsiteRepository extends JpaRepository<Website, Integer> {
     @Query(value = "SELECT * FROM website" +
         "   WHERE (last_checked_on + INTERVAL '1' HOUR * fetch_every_number_of_hours < now() + INTERVAL '1' HOUR" +
         "     OR last_checked_on IS NULL)" +
+        "   AND website.content_type != 'SOCIAL_MEDIA' " +
+        "   AND website.type NOT IN ('REDIRECT', 'INDEXING_SERVICE') " +
         " ORDER BY last_checked_on ASC", nativeQuery = true)
     List<Website> getNextWebsitesThatNeedFetching();
 

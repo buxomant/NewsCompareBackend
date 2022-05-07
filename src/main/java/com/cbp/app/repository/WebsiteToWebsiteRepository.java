@@ -59,6 +59,36 @@ public interface WebsiteToWebsiteRepository extends JpaRepository<WebsiteToWebsi
         @Param("websiteContentType") String websiteContentType
     );
 
+    @Query(value =
+        "SELECT " +
+        "  MAX(wtw.link_id) AS \"link_id\", " +
+        "  COALESCE(MAX(soFrom.website_id_parent), MAX(wtw.website_id_from)) AS \"website_id_from\", " +
+        "  COALESCE(MAX(soTo.website_id_parent), MAX(wtw.website_id_to)) AS \"website_id_to\", " +
+        "  MAX(wtw.content_id) AS \"content_id\", " +
+        "  MAX(wtw.title) AS \"title\" " +
+        "FROM website_to_website wtw " +
+        "  JOIN website w ON wtw.website_id_from = w.website_id " +
+        "  LEFT JOIN subdomain_of soFrom ON soFrom.website_id_child = wtw.website_id_from " +
+        "  LEFT JOIN subdomain_of soTo ON soTo.website_id_child = wtw.website_id_to " +
+        "WHERE wtw.website_id_from != wtw.website_id_to" +
+        "  AND content_id IN (SELECT MAX(content_id) FROM website_to_website WHERE content_id != 0 GROUP BY website_id_from) " +
+        "GROUP BY CONCAT(wtw.website_id_from, '-', wtw.website_id_to)" +
+        "UNION " +
+        "SELECT " +
+        "  MAX(wtw.link_id) AS \"link_id\", " +
+        "  COALESCE(MAX(soFrom.website_id_parent), MAX(wtw.website_id_from)) AS \"website_id_from\", " +
+        "  COALESCE(MAX(soTo.website_id_parent), MAX(wtw.website_id_to)) AS \"website_id_to\", " +
+        "  MAX(wtw.content_id) AS \"content_id\", " +
+        "  MAX(wtw.title) AS \"title\" " +
+        "FROM website_to_website wtw " +
+        "  JOIN website w ON wtw.website_id_to = w.website_id " +
+        "  LEFT JOIN subdomain_of soFrom ON soFrom.website_id_child = wtw.website_id_from " +
+        "  LEFT JOIN subdomain_of soTo ON soTo.website_id_child = wtw.website_id_to " +
+        "WHERE wtw.website_id_from != wtw.website_id_to" +
+        "  AND content_id IN (SELECT MAX(content_id) FROM website_to_website WHERE content_id != 0 GROUP BY website_id_to) " +
+        "GROUP BY CONCAT(wtw.website_id_from, '-', wtw.website_id_to)", nativeQuery = true)
+    List<WebsiteToWebsite> findAllForLatestContentIdCoalesced();
+
     @Query(value = "SELECT COUNT(*) FROM website_to_website", nativeQuery = true)
     Integer getNumberOfWebsiteToWebsiteLinks();
 }

@@ -104,8 +104,12 @@ public class LinkService {
     }
 
     public static boolean isNotIPOrPhoneNumber(String linkUrl) {
-        Matcher matcher = RegexPatternService.ipOrPhoneStringPattern.matcher(linkUrl);
-        return !matcher.matches();
+        return !RegexPatternService.ipStringPattern.matcher(linkUrl).matches()
+            && !RegexPatternService.phoneStringPattern.matcher(linkUrl).matches();
+    }
+
+    public static boolean isNotIgnorable(String linkUrl) {
+        return !RegexPatternService.miscIgnorablePattern.matcher(linkUrl).matches();
     }
 
     public static boolean isValidWebUrl(String linkUrl) {
@@ -119,6 +123,7 @@ public class LinkService {
         return linkElements.parallelStream()
             .map(link -> new SimpleLink(link.text(), link.attr("href")))
             .filter(link -> LinkService.isNotIPOrPhoneNumber(link.getLinkUrl()))
+            .filter(link -> LinkService.isNotIgnorable(link.getLinkUrl()))
             .filter(link -> LinkService.isValidWebUrl(link.getLinkUrl()))
             .filter(link -> LinkService.isNotEmptyOrUseless(link.getLinkUrl()))
             .filter(link -> LinkService.isNotJavascriptFunction(link.getLinkUrl()))

@@ -84,8 +84,20 @@ public class WebsiteController {
         }
     }
 
+    @RequestMapping(value = "/website-to-website", method = RequestMethod.GET)
+    public WebsiteToWebsitesResponse getWebsiteToWebsiteLinks() {
+        List<WebsiteToWebsite> websiteToWebsites = websiteToWebsiteRepository
+            .findAllForLatestContentIdCoalesced();
+
+        List<WebsiteToWebsiteResponse> websiteToWebsiteResponses = websiteToWebsites.stream()
+            .map(wtw -> new WebsiteToWebsiteResponse(wtw.getWebsiteIdFrom(), wtw.getWebsiteIdTo()))
+            .collect(Collectors.toList());
+
+        return new WebsiteToWebsitesResponse(websiteToWebsiteResponses);
+    }
+
     @RequestMapping(value = "/website-to-website/website-type/{websiteType}/content-type/{contentType}", method = RequestMethod.GET)
-    public WebsiteToWebsitesResponse getWebsiteToWebsiteLinks(
+    public WebsiteToWebsitesResponse getWebsiteToWebsiteLinksWithTypeAndContentType(
         @PathVariable String websiteType,
         @PathVariable String contentType
     ) {

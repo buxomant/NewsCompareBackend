@@ -22,7 +22,8 @@ public class RegexPatternService {
     public static final Pattern queryStringPattern = Pattern.compile("(.*)\\?.*");
     public static final Pattern asteriskStringPattern = Pattern.compile("(.*)\\*.*");
     public static final Pattern dateStringPattern = Pattern.compile("^[^\\.]*[0-9]+\\.[0-9]+\\.[0-9]+[^\\.]*$");
-    public static final Pattern ipOrPhoneStringPattern = Pattern.compile("^[0-9\\.]+$");
+    public static final Pattern phoneStringPattern = Pattern.compile("^[0-9\\.]+$");
+    public static final Pattern ipStringPattern = Pattern.compile("^(?:(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])(\\.(?!$)|[:/]?)){4}");
     public static final Pattern anchorStringPattern = Pattern.compile("(.*)#.*");
     public static final Pattern alphanumericContentPattern = Pattern.compile("^([\\W_]*)|([\\W_]*$)");
     public static final Pattern subPagePattern = Pattern.compile("(.*?\\.\\w+)/.*");
@@ -166,7 +167,12 @@ public class RegexPatternService {
         "|(?:.*\\.)?last\\.fm.*" +
         "|(?:.*\\.)?pinterest\\.com.*" +
         "|(?:.*\\.)?linkedin\\.com.*" +
-        "|(?:.*\\.)?youtube\\.com.*"
+        "|(?:.*\\.)?youtube\\.com.*" +
+        "|(?:.*\\.)?gravatar\\.com.*"
+    );
+    public static final Pattern miscIgnorablePattern = Pattern.compile(
+        "(?:.*\\.)?schoolloop\\.com.*" +
+        "(?:.*\\.)?adperfect\\.com.*"
     );
     public static final Pattern indexingServicePattern = Pattern.compile(
         ".*google\\.com.*" +

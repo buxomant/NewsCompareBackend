@@ -90,26 +90,21 @@ public class WebsiteScraperScheduler {
         successfulWebsites.entrySet().parallelStream()
             .forEach(entry -> scraperService.storeWebsiteContent(entry.getKey(), entry.getValue()));
 
-        LoggingHelper.logEndOfMethod(
-            "Fetch websites",
-            startTime
-        );
-        double percentageSuccessful = nextUncheckedWebsites.size() > 0
-            ? (double) successfulWebsites.size() / (double) nextUncheckedWebsites.size()
-            : 0;
-        String formattedPercentage = String.format("%.2f%%", percentageSuccessful * 100);
+        LoggingHelper.logEndOfMethod("Fetch websites", startTime);
         LoggingHelper.logMessage(String.format("" +
             "Websites contacted: %s, Websites successful: %s [%s]",
             nextUncheckedWebsites.size(),
             successfulWebsites.size(),
-            formattedPercentage
+            formatSuccessfulPercentageOfTotal(successfulWebsites.size(), nextUncheckedWebsites.size())
         ));
     }
 
     private void fetchPages() {
         LocalTime startTimePageProcessing = LoggingHelper.logStartOfMethod("Fetch pages");
 
-        List<Page> nextUncheckedPages = pageRepository.getNextDomesticPagesThatNeedFetching();
+        List<Page> nextUncheckedPages = pageRepository.getNextPagesThatNeedFetching();
+
+        LoggingHelper.logMessage(String.format("Found %s pages that need fetching", nextUncheckedPages.size()));
 
         Map<Page, String> baseUrlToPages = nextUncheckedPages.stream()
             .collect(Collectors.toMap(Function.identity(), page -> page.getUrl().split("/")[0]));
@@ -135,20 +130,20 @@ public class WebsiteScraperScheduler {
             }
         }
 
-        LoggingHelper.logEndOfMethod("fetch pages (done processing)", startTimePageProcessing);
+        LoggingHelper.logEndOfMethod("Fetch pages (done processing)", startTimePageProcessing);
 
-        LocalTime startTimePages = LoggingHelper.logStartOfMethod("fetch pages (parallel)");
+        LocalTime startTimePages = LoggingHelper.logStartOfMethod("Fetch pages (parallel)");
         Random random = new Random();
 
         AtomicInteger totalPages = new AtomicInteger(0);
         AtomicInteger totalSuccessfulPages = new AtomicInteger(0);
         listsOfListsOfPages.parallelStream().forEach(listOfPages -> {
 
-            LocalTime startTimePageIteration = LoggingHelper.logStartOfMethod("fetch pages (iteration)");
+            LocalTime startTimePageIteration = LoggingHelper.logStartOfMethod("Fetch pages (iteration)");
 
             try {
                 long sleepTime = random.nextInt(100) * 100;
-                LoggingHelper.logMessage("=== Thread sleeping for " + sleepTime + " ms");
+                LoggingHelper.logMessage(String.format("Thread %s sleeping for %s ms", Thread.currentThread().getId(), sleepTime));
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -170,12 +165,30 @@ public class WebsiteScraperScheduler {
             totalSuccessfulPages.addAndGet(successfulPages.size());
 
             LoggingHelper.logEndOfMethod(
-                "fetch pages (got " + successfulPages.size() + " out of " + listOfPages.size() + " pages this iteration)",
+                "Fetch pages (iteration)",
                 startTimePageIteration
             );
+
+            LoggingHelper.logMessage(String.format(
+                "Pages contacted: %s, Pages successful: %s [%s]",
+                listOfPages.size(),
+                successfulPages.size(),
+                formatSuccessfulPercentageOfTotal(successfulPages.size(), listOfPages.size())
+            ));
         });
 
-        LoggingHelper.logEndOfMethod("fetch pages (got " + totalSuccessfulPages.get() + " out of " + totalPages.get() + " total pages)", startTimePages);
+        LoggingHelper.logEndOfMethod("Fetch pages (total)", startTimePages);
+        LoggingHelper.logMessage(String.format(
+            "Pages contacted: %s, Pages successful: %s [%s]",
+            totalPages.get(),
+            totalSuccessfulPages.get(),
+            formatSuccessfulPercentageOfTotal(totalSuccessfulPages.get(), totalPages.get())
+        ));
+    }
+
+    private static String formatSuccessfulPercentageOfTotal(int successful, int total) {
+        double percentageSuccessful = total > 0 ? (double) successful / (double) total : 0;
+        return String.format("%.2f%%", percentageSuccessful * 100);
     }
 
     private void processWebsites() {

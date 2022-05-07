@@ -144,6 +144,7 @@ public class ScraperService {
 
     public Optional<Document> getWebPageIfUrlReachable(Page currentPage) {
         Connection connection = null;
+        Connection.Response response = null;
         Document webPage = null;
         String urlIncludingWwwAndProtocol;
         String url = currentPage.getUrl();
@@ -152,20 +153,22 @@ public class ScraperService {
 
         try {
             connection = Jsoup.connect(urlIncludingWwwAndProtocol).timeout(TIMEOUT_IN_MILLIS);
+            response = connection.execute();
             webPage = connection.get();
         } catch (HttpStatusException | SSLException | SocketException | SocketTimeoutException e) {
             urlIncludingWwwAndProtocol = "http://" + urlIncludingWww;
         } catch (IOException e) {
-            savePageError(currentPage, connection, e.getMessage());
+            savePageError(currentPage, response, e.getMessage());
             return Optional.empty();
         }
 
         if (webPage == null) {
             try {
-                connection = Jsoup.connect(urlIncludingWwwAndProtocol);
+                connection = Jsoup.connect(urlIncludingWwwAndProtocol).timeout(TIMEOUT_IN_MILLIS);
+                response = connection.execute();
                 webPage = connection.get();
             } catch (IOException e) {
-                savePageError(currentPage, connection, e.getMessage());
+                savePageError(currentPage, response, e.getMessage());
                 return Optional.empty();
             }
         }
@@ -232,11 +235,11 @@ public class ScraperService {
         websiteRepository.save(currentWebsite);
     }
 
-    private void savePageError(Page currentPage, Connection connection, String errorMessage) {
+    private void savePageError(Page currentPage, Connection.Response response, String errorMessage) {
         currentPage.setError(errorMessage);
         currentPage.setLastCheckedOn(LocalDateTime.now());
-        if (connection != null) {
-            currentPage.setLastResponseCode(connection.response().statusCode());
+        if (response != null) {
+            currentPage.setLastResponseCode(response.statusCode());
         }
         pageRepository.save(currentPage);
     }

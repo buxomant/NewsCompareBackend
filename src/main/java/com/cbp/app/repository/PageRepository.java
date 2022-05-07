@@ -23,8 +23,8 @@ public interface PageRepository extends JpaRepository<Page, Integer> {
     @Query(value = "SELECT * FROM page" +
     "  WHERE last_seen > now() - INTERVAL '1' HOUR" +
     "  AND split_part(url, '/', 1) IN " +
-    "    (SELECT url FROM website WHERE type = 'DOMESTIC' AND content_type = 'NEWS')", nativeQuery = true)
-    List<Page> getNextDomesticPagesThatNeedFetching();
+    "    (SELECT url FROM website)", nativeQuery = true)
+    List<Page> getNextPagesThatNeedFetching();
 
     @Query(value = "SELECT * FROM page " +
     "WHERE website_id IN (SELECT website_id FROM website WHERE type = 'DOMESTIC' AND content_type = 'NEWS') " +

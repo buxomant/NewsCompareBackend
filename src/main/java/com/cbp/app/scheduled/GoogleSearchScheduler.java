@@ -1,6 +1,7 @@
 package com.cbp.app.scheduled;
 
 import com.cbp.app.client.GoogleSearchClient;
+import com.cbp.app.helper.LoggingHelper;
 import com.cbp.app.model.db.GoogleSearch;
 import com.cbp.app.model.db.GoogleSearchTerm;
 import com.cbp.app.model.db.Website;
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Optional;
 
 @Component
@@ -41,11 +43,12 @@ public class GoogleSearchScheduler {
         this.jobEnabled = jobEnabled;
     }
 
-    private static final int ONE_SECOND_IN_MILLISECONDS = 1000;
+    private static final int ONE_HOUR_IN_MILLISECONDS = 4 * 60 * 60 * 1000;
     private static final int MAX_SEARCH_INDEX = 101;
 
-    @Scheduled(fixedRate = ONE_SECOND_IN_MILLISECONDS)
+    @Scheduled(fixedRate = ONE_HOUR_IN_MILLISECONDS)
     public void findNewWebsites() {
+        LocalTime startTime = LoggingHelper.logStartOfMethod("Find new websites");
         if (!jobEnabled) {
             return;
         }
@@ -56,13 +59,16 @@ public class GoogleSearchScheduler {
             .orElse(googleSearchTermRepository.getNextUnusedSearchTerm());
 
         if (!nextSearchTerm.isPresent()) {
+            LoggingHelper.logMessage("No search term found");
             return;
         }
 
         GoogleSearchTerm searchTerm = nextSearchTerm.get();
+        LoggingHelper.logMessage(String.format("Using search term: [%s]", searchTerm.getTerm()));
         Optional<Integer> storedNextStartIndex = googleSearchRepository.getNextSearchStartIndexByTermId(searchTerm.getTermId());
 
         if (!storedNextStartIndex.isPresent()) {
+            LoggingHelper.logMessage("Search term results exhausted");
             return;
         }
 
@@ -90,5 +96,6 @@ public class GoogleSearchScheduler {
             LocalDateTime.now()
         );
         googleSearchRepository.save(googleSearch);
+        LoggingHelper.logEndOfMethod("Find new websites", startTime);
     }
 }
