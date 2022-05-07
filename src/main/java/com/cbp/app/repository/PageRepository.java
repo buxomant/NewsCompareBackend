@@ -23,7 +23,8 @@ public interface PageRepository extends JpaRepository<Page, Integer> {
     @Query(value = "SELECT * FROM page" +
     "  WHERE last_seen > now() - INTERVAL '1' HOUR" +
     "  AND split_part(url, '/', 1) IN " +
-    "    (SELECT url FROM website)", nativeQuery = true)
+    "    (SELECT url FROM website)" +
+    "  LIMIT 100", nativeQuery = true)
     List<Page> getNextPagesThatNeedFetching();
 
     @Query(value = "SELECT * FROM page " +

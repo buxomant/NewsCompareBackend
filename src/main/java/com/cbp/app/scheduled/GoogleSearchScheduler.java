@@ -10,6 +10,7 @@ import com.cbp.app.repository.GoogleSearchRepository;
 import com.cbp.app.repository.GoogleSearchTermRepository;
 import com.cbp.app.repository.WebsiteRepository;
 import com.cbp.app.service.LinkService;
+import com.cbp.app.service.WebsiteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,7 +18,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class GoogleSearchScheduler {
@@ -43,10 +47,8 @@ public class GoogleSearchScheduler {
         this.jobEnabled = jobEnabled;
     }
 
-    private static final int ONE_HOUR_IN_MILLISECONDS = 4 * 60 * 60 * 1000;
     private static final int MAX_SEARCH_INDEX = 101;
 
-    @Scheduled(fixedRate = ONE_HOUR_IN_MILLISECONDS)
     public void findNewWebsites() {
         LocalTime startTime = LoggingHelper.logStartOfMethod("Find new websites");
         if (!jobEnabled) {
@@ -77,16 +79,20 @@ public class GoogleSearchScheduler {
         int currentStartIndex = response.getQueries().getRequest().get(0).getStartIndex();
         int nextStartIndex = response.getItems() != null ? currentStartIndex + 10 : MAX_SEARCH_INDEX;
 
+        List<Website> newWebsites = Collections.emptyList();
+
         if (response.getItems() != null) {
-            response.getItems().forEach(item -> {
-                String websiteUrl = item.getDisplayLink();
-                String sanitizedWebsiteUrl = LinkService.sanitizeLinkUrl(websiteUrl);
-                Optional<Website> existingWebsite = websiteRepository.findByUrl(sanitizedWebsiteUrl);
-                if (!existingWebsite.isPresent()) {
-                    Website newWebsite = new Website(item.getTitle(), sanitizedWebsiteUrl, LocalDateTime.now());
-                    websiteRepository.save(newWebsite);
-                }
-            });
+            List<String> sanitizedWebsiteUrls = response.getItems().stream()
+                .map(item -> LinkService.sanitizeLinkUrl(item.getDisplayLink()))
+                .collect(Collectors.toList());
+            List<String> existingWebsiteUrls = websiteRepository.findByUrlIn(sanitizedWebsiteUrls).stream()
+                .map(Website::getUrl)
+                .collect(Collectors.toList());
+            newWebsites = sanitizedWebsiteUrls.stream()
+                .filter(websiteUrl -> !existingWebsiteUrls.contains(websiteUrl))
+                .map(WebsiteService::createNewWebsite)
+                .collect(Collectors.toList());
+            websiteRepository.saveAll(newWebsites);
         }
 
         GoogleSearch googleSearch = new GoogleSearch(
@@ -97,5 +103,6 @@ public class GoogleSearchScheduler {
         );
         googleSearchRepository.save(googleSearch);
         LoggingHelper.logEndOfMethod("Find new websites", startTime);
+        LoggingHelper.logMessage(String.format("Found %s new websites", newWebsites.size()));
     }
 }

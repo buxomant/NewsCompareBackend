@@ -32,6 +32,7 @@ public class WebsiteScraperScheduler {
     private final PageRepository pageRepository;
     private final ScraperService scraperService;
     private final IndexService indexService;
+    private final GoogleSearchScheduler googleSearchScheduler;
     private final boolean fetchWebsitesJobEnabled;
     private final boolean processWebsitesJobEnabled;
     private final boolean fixDuplicateWebsitesJobEnabled;
@@ -45,6 +46,7 @@ public class WebsiteScraperScheduler {
         PageRepository pageRepository,
         ScraperService scraperService,
         IndexService indexService,
+        GoogleSearchScheduler googleSearchScheduler,
         @Value("${fetch-websites-scheduler.enabled}") boolean fetchWebsitesJobEnabled,
         @Value("${process-websites-scheduler.enabled}") boolean processWebsitesJobEnabled,
         @Value("${fix-duplicate-websites-scheduler.enabled}") boolean fixDuplicateWebsitesJobEnabled,
@@ -54,6 +56,7 @@ public class WebsiteScraperScheduler {
         this.pageRepository = pageRepository;
         this.scraperService = scraperService;
         this.indexService = indexService;
+        this.googleSearchScheduler = googleSearchScheduler;
         this.fetchWebsitesJobEnabled = fetchWebsitesJobEnabled;
         this.processWebsitesJobEnabled = processWebsitesJobEnabled;
         this.fixDuplicateWebsitesJobEnabled = fixDuplicateWebsitesJobEnabled;
@@ -64,6 +67,7 @@ public class WebsiteScraperScheduler {
     @SchedulerLock(name = "fetchWebsitesContent")
     public void fetchWebsitesContent() throws IOException, ExecutionException, InterruptedException {
         if (fetchWebsitesJobEnabled) {
+            googleSearchScheduler.findNewWebsites();
             fetchWebsites();
             fetchPages();
             processWebsites();

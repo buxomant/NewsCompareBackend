@@ -2,6 +2,7 @@ package com.cbp.app.service;
 
 import com.cbp.app.helper.LoggingHelper;
 import com.cbp.app.helper.Ticker;
+import com.cbp.app.model.ScraperResult;
 import com.cbp.app.model.SimpleLink;
 import com.cbp.app.model.db.*;
 import com.cbp.app.model.enumType.WebsiteContentType;
@@ -81,7 +82,9 @@ public class ScraperService {
 
         WebsiteType websiteType = WebsiteService.getWebsiteType(url, webPage.baseUri());
 
-        if (currentWebsite.getContentType() == WebsiteContentType.UNCATEGORIZED) {
+        if (currentWebsite.getContentType() == WebsiteContentType.UNCATEGORIZED
+            || currentWebsite.getContentType() == null
+        ) {
             WebsiteContentType websiteContentType = WebsiteService.getWebsiteContentType(webPage.baseUri());
             currentWebsite.setContentType(websiteContentType);
         }
@@ -109,71 +112,52 @@ public class ScraperService {
     }
 
     public Optional<Document> getWebPageIfUrlReachable(Website currentWebsite) {
-        Connection connection = null;
-        Document webPage = null;
-        Connection.Response response = null;
-        String urlIncludingWwwAndProtocol;
-        String url = currentWebsite.getUrl();
-        String urlIncludingWww = RegexPatternService.urlMissingWwwPattern.matcher(url).matches() ? "www." + url : url;
-        urlIncludingWwwAndProtocol = "https://" + urlIncludingWww;
-
-        try {
-            connection = Jsoup.connect(urlIncludingWwwAndProtocol).timeout(TIMEOUT_IN_MILLIS);
-            response = connection.execute();
-            webPage = connection.get();
-        } catch (HttpStatusException | SSLException | SocketException | SocketTimeoutException e) {
-            urlIncludingWwwAndProtocol = "http://" + urlIncludingWww;
-        } catch (IOException e) {
-            saveWebsiteError(currentWebsite, response, e.getMessage());
+        ScraperResult result = tryScrapeUrl(currentWebsite.getUrl());
+        if (result.getDocument() == null) {
+            saveWebsiteError(currentWebsite, result.getResponse(), result.getException().getMessage());
             return Optional.empty();
         }
-
-        if (webPage == null) {
-            try {
-                connection = Jsoup.connect(urlIncludingWwwAndProtocol);
-                response = connection.execute();
-                webPage = connection.get();
-            } catch (IOException e) {
-                saveWebsiteError(currentWebsite, response, e.getMessage());
-                return Optional.empty();
-            }
-        }
-
-        return Optional.of(webPage);
+        return Optional.of(result.getDocument());
     }
 
     public Optional<Document> getWebPageIfUrlReachable(Page currentPage) {
+        ScraperResult result = tryScrapeUrl(currentPage.getUrl());
+        if (result.getDocument() == null) {
+            savePageError(currentPage, result.getResponse(), result.getException().getMessage());
+            return Optional.empty();
+        }
+        return Optional.of(result.getDocument());
+    }
+
+    private ScraperResult tryScrapeUrl(String url) {
         Connection connection = null;
         Connection.Response response = null;
-        Document webPage = null;
+        Document document = null;
         String urlIncludingWwwAndProtocol;
-        String url = currentPage.getUrl();
         String urlIncludingWww = RegexPatternService.urlMissingWwwPattern.matcher(url).matches() ? "www." + url : url;
         urlIncludingWwwAndProtocol = "https://" + urlIncludingWww;
 
         try {
             connection = Jsoup.connect(urlIncludingWwwAndProtocol).timeout(TIMEOUT_IN_MILLIS);
             response = connection.execute();
-            webPage = connection.get();
+            document = connection.get();
         } catch (HttpStatusException | SSLException | SocketException | SocketTimeoutException e) {
             urlIncludingWwwAndProtocol = "http://" + urlIncludingWww;
         } catch (IOException e) {
-            savePageError(currentPage, response, e.getMessage());
-            return Optional.empty();
+            return new ScraperResult(null, response, e);
         }
 
-        if (webPage == null) {
+        if (document == null) {
             try {
                 connection = Jsoup.connect(urlIncludingWwwAndProtocol).timeout(TIMEOUT_IN_MILLIS);
                 response = connection.execute();
-                webPage = connection.get();
+                document = connection.get();
             } catch (IOException e) {
-                savePageError(currentPage, response, e.getMessage());
-                return Optional.empty();
+                return new ScraperResult(null, response, e);
             }
         }
 
-        return Optional.of(webPage);
+        return new ScraperResult(document, null, null);
     }
 
     private void saveWebsiteTextToFile(Document webPage, String url, Website currentWebsite) throws IOException {
@@ -250,11 +234,14 @@ public class ScraperService {
         if (currentWebsite == null) {
             return BREAK;
         }
-
-        LocalTime startTime = LoggingHelper.logStartOfMethod("Process website");
+        LocalTime startTime = LoggingHelper.logStartOfMethod(String.format(
+            "Process website. Thread [%s]",
+            Thread.currentThread().getId())
+        );
 
         String url = currentWebsite.getUrl();
-        WebsiteContent websiteContent = websiteContentRepository.getFirstByWebsiteIdAndTimeProcessedIsNull(currentWebsite.getWebsiteId());
+        WebsiteContent websiteContent = websiteContentRepository
+            .getFirstByWebsiteIdAndTimeProcessedIsNull(currentWebsite.getWebsiteId());
         Document webPage = Jsoup.parse(websiteContent.getContent());
         Elements linkElements = webPage.select("[href]");
 
@@ -267,9 +254,7 @@ public class ScraperService {
         websiteContent.setTimeProcessed(LocalDateTime.now());
         websiteContentRepository.save(websiteContent);
 
-        LoggingHelper.logMessage("Processed website: " + currentWebsite.getUrl() + " (" + websites.size() + " left)");
-        LoggingHelper.logMessage("Websites left: " + websites.size());
-        LoggingHelper.logEndOfMethod("Process website", startTime);
+        LoggingHelper.logEndOfMethod(String.format("Processed website: [%s]", currentWebsite.getUrl()), startTime);
 
         return CONTINUE;
     }
@@ -335,7 +320,7 @@ public class ScraperService {
         List<Page> pagesMatchingUrl = pageRepository.findAllByUrlOrderByPageId(currentWebsite.getUrl());
         Page currentPage = pagesMatchingUrl.size() > 0
             ? fixDuplicatePage(pagesMatchingUrl)
-            : WebsiteService.createNewPageForWebsiteHomePage(websiteRepository.getOne(websiteContent.getWebsiteId()));
+            : WebsiteService.createNewPageForWebsiteHomePage(websiteRepository.getById(websiteContent.getWebsiteId()));
         Page savedCurrentPage = (currentPage.getPageId() == 0)
             ? pageRepository.save(currentPage)
             : currentPage;

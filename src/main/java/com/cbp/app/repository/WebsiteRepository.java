@@ -29,7 +29,7 @@ public interface WebsiteRepository extends JpaRepository<Website, Integer> {
         @Param("websiteContentType") String websiteContentType
     );
     
-    Optional<Website> findByUrl(String url);
+    List<Website> findByUrlIn(List<String> urls);
 
     List<Website> findAllByUrlOrderByWebsiteId(String url);
 
@@ -38,13 +38,16 @@ public interface WebsiteRepository extends JpaRepository<Website, Integer> {
     @Query(value = "SELECT * FROM website" +
         "   WHERE (last_checked_on + INTERVAL '1' HOUR * fetch_every_number_of_hours < now() + INTERVAL '1' HOUR" +
         "     OR last_checked_on IS NULL)" +
-        "   AND website.content_type != 'SOCIAL_MEDIA' " +
-        "   AND website.type NOT IN ('REDIRECT', 'INDEXING_SERVICE') " +
-        " ORDER BY last_checked_on ASC", nativeQuery = true)
+        "   AND content_type != 'SOCIAL_MEDIA' " +
+        "   AND type NOT IN ('REDIRECT', 'INDEXING_SERVICE') " +
+        " ORDER BY last_checked_on ASC" +
+        " LIMIT 100", nativeQuery = true)
     List<Website> getNextWebsitesThatNeedFetching();
 
     @Query(value = "SELECT * FROM website JOIN website_content USING (website_id)" +
         " WHERE time_processed IS NULL" +
+        "   AND content_type != 'SOCIAL_MEDIA' " +
+        "   AND type NOT IN ('REDIRECT', 'INDEXING_SERVICE') " +
         " ORDER BY time_fetched", nativeQuery = true)
     List<Website> getNextWebsitesThatNeedProcessing();
 

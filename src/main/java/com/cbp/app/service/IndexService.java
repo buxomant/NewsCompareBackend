@@ -40,7 +40,7 @@ public class IndexService {
     }
 
     public void indexAndCompareWebsites() throws IOException {
-        LocalTime startTime = LoggingHelper.logStartOfMethod("indexAndCompareWebsites");
+        LocalTime startTime = LoggingHelper.logStartOfMethod("Index and compare websites");
 
         String dateAndHour = LocalDateTime.now().format(DateTimeFormatter.ofPattern(DATE_AND_HOUR_PATTERN));
         String workingDirectory = WEBSITE_STORAGE_PATH + "/" + dateAndHour;
@@ -63,7 +63,7 @@ public class IndexService {
 
         comparisonService.compareDocuments(dateAndHour);
 
-        LoggingHelper.logEndOfMethod("indexAndCompareWebsites", startTime);
+        LoggingHelper.logEndOfMethod("Index and compare websites", startTime);
     }
 
     public static void indexDocs(final IndexWriter writer, Path path) throws IOException {

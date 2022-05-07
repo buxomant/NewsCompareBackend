@@ -168,14 +168,20 @@ public class RegexPatternService {
         "|(?:.*\\.)?pinterest\\.com.*" +
         "|(?:.*\\.)?linkedin\\.com.*" +
         "|(?:.*\\.)?youtube\\.com.*" +
+        "|(?:.*\\.)?reddit\\.com.*" +
+        "|(?:.*\\.)?snapchat\\.com.*" +
+        "|(?:.*\\.)?tiktok\\.com.*" +
+        "|(?:.*\\.)?tumblr\\.com.*" +
+        "|(?:.*\\.)?stackoverflow\\.com.*" +
         "|(?:.*\\.)?gravatar\\.com.*"
     );
     public static final Pattern miscIgnorablePattern = Pattern.compile(
         "(?:.*\\.)?schoolloop\\.com.*" +
+        "(?:.*\\.)?doubleclick\\.net.*" +
         "(?:.*\\.)?adperfect\\.com.*"
     );
     public static final Pattern indexingServicePattern = Pattern.compile(
-        ".*google\\.com.*" +
+        ".*google\\.co.*" +
         "^google\\..*" +
         "|.*alexa\\.com.*" +
         "|.*apple\\.com.*" +
