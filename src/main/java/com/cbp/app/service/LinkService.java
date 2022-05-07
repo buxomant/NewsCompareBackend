@@ -4,6 +4,7 @@ import com.cbp.app.model.SimpleLink;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,6 +12,22 @@ import java.util.stream.Collectors;
 
 @Service
 public class LinkService {
+    public static String sanitizeLinkUrl(String linkUrl) {
+        List<String> link = Collections.singletonList(linkUrl);
+        return link.stream()
+            .map(String::trim)
+            .map(String::toLowerCase)
+            .map(LinkService::trimNonAlphanumericContent)
+            .map(LinkService::stripProtocolPrefix)
+            .map(LinkService::stripWwwPrefix)
+            .map(LinkService::stripAnchorString)
+            .map(LinkService::stripQueryString)
+            .map(LinkService::stripAsteriskString)
+            .map(LinkService::trimNonAlphanumericContent)
+            .collect(Collectors.toList())
+            .get(0);
+    }
+
     public static String stripProtocolPrefix(String linkUrl) {
         return linkUrl
             .replace("https//", "")

@@ -8,6 +8,7 @@ import com.cbp.app.model.response.GoogleSearch.GoogleSearchResponse;
 import com.cbp.app.repository.GoogleSearchRepository;
 import com.cbp.app.repository.GoogleSearchTermRepository;
 import com.cbp.app.repository.WebsiteRepository;
+import com.cbp.app.service.LinkService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -73,9 +74,10 @@ public class GoogleSearchScheduler {
         if (response.getItems() != null) {
             response.getItems().forEach(item -> {
                 String websiteUrl = item.getDisplayLink();
-                Optional<Website> existingWebsite = websiteRepository.findByUrl(websiteUrl);
+                String sanitizedWebsiteUrl = LinkService.sanitizeLinkUrl(websiteUrl);
+                Optional<Website> existingWebsite = websiteRepository.findByUrl(sanitizedWebsiteUrl);
                 if (!existingWebsite.isPresent()) {
-                    Website newWebsite = new Website(item.getTitle(), websiteUrl, LocalDateTime.now());
+                    Website newWebsite = new Website(item.getTitle(), sanitizedWebsiteUrl, LocalDateTime.now());
                     websiteRepository.save(newWebsite);
                 }
             });

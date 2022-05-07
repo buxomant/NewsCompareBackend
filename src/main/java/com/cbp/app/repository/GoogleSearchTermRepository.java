@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface GoogleSearchTermRepository extends JpaRepository<GoogleSearchTerm, Integer> {
     @Query(value = "SELECT * FROM google_search_term gst" +
-            " WHERE (SELECT COUNT(*) FROM google_search WHERE google_search.term_id = gst.term_id) = 0" +
+            " WHERE (SELECT COUNT(*) FROM google_search gs WHERE gs.term_id = gst.term_id) = 0" +
             " ORDER BY term_id ASC LIMIT 1", nativeQuery = true)
     public Optional<GoogleSearchTerm> getNextUnusedSearchTerm();
 }

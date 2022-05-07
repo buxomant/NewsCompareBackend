@@ -28,7 +28,7 @@ import static com.cbp.app.service.LinkService.urlToTopDomain;
 public class ComparisonService {
     private final TextSimilarityRepository textSimilarityRepository;
 
-    private static int MAX_HITS = 1000;
+    private static final int MAX_HITS = 1000;
 
     @Autowired
     public ComparisonService(TextSimilarityRepository textSimilarityRepository) {
@@ -78,7 +78,7 @@ public class ComparisonService {
                             return null;
                         }
 
-                        Float coefficient = scoreDoc.score / result.getMaxScore();
+                        float coefficient = scoreDoc.score / result.getMaxScore();
                         return new TextSimilarity(currentId, otherId, dateAndHour, currentType, otherType, coefficient);
                     } catch (IOException e) {
                         e.printStackTrace();

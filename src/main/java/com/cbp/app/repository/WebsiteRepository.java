@@ -36,18 +36,15 @@ public interface WebsiteRepository extends JpaRepository<Website, Integer> {
     List<Website> findAllByUrlIn(List<String> urls);
 
     @Query(value = "SELECT * FROM website" +
-        " WHERE type = 'DOMESTIC'" +
-        "   AND content_type = 'NEWS'" +
-        "   AND (last_checked_on + INTERVAL '1' HOUR * fetch_every_number_of_hours < now() + INTERVAL '1' HOUR" +
+        "   WHERE (last_checked_on + INTERVAL '1' HOUR * fetch_every_number_of_hours < now() + INTERVAL '1' HOUR" +
         "     OR last_checked_on IS NULL)" +
         " ORDER BY last_checked_on ASC", nativeQuery = true)
-    List<Website> getNextDomesticWebsitesThatNeedFetching();
+    List<Website> getNextWebsitesThatNeedFetching();
 
     @Query(value = "SELECT * FROM website JOIN website_content USING (website_id)" +
         " WHERE time_processed IS NULL" +
-        "   AND type = 'DOMESTIC'" +
         " ORDER BY time_fetched", nativeQuery = true)
-    List<Website> getNextDomesticWebsitesThatNeedProcessing();
+    List<Website> getNextWebsitesThatNeedProcessing();
 
     @Query(value = "SELECT url FROM website" +
         " GROUP BY url" +

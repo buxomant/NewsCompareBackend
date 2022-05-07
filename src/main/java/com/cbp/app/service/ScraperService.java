@@ -13,7 +13,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +25,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -115,6 +111,7 @@ public class ScraperService {
     public Optional<Document> getWebPageIfUrlReachable(Website currentWebsite) {
         Connection connection = null;
         Document webPage = null;
+        Connection.Response response = null;
         String urlIncludingWwwAndProtocol;
         String url = currentWebsite.getUrl();
         String urlIncludingWww = RegexPatternService.urlMissingWwwPattern.matcher(url).matches() ? "www." + url : url;
@@ -122,20 +119,22 @@ public class ScraperService {
 
         try {
             connection = Jsoup.connect(urlIncludingWwwAndProtocol).timeout(TIMEOUT_IN_MILLIS);
+            response = connection.execute();
             webPage = connection.get();
         } catch (HttpStatusException | SSLException | SocketException | SocketTimeoutException e) {
             urlIncludingWwwAndProtocol = "http://" + urlIncludingWww;
         } catch (IOException e) {
-            saveWebsiteError(currentWebsite, connection, e.getMessage());
+            saveWebsiteError(currentWebsite, response, e.getMessage());
             return Optional.empty();
         }
 
         if (webPage == null) {
             try {
                 connection = Jsoup.connect(urlIncludingWwwAndProtocol);
+                response = connection.execute();
                 webPage = connection.get();
             } catch (IOException e) {
-                saveWebsiteError(currentWebsite, connection, e.getMessage());
+                saveWebsiteError(currentWebsite, response, e.getMessage());
                 return Optional.empty();
             }
         }
@@ -199,8 +198,8 @@ public class ScraperService {
             directory.mkdirs();
         }
 
-        String fixedUrl = url
-            .replaceAll("\\/", "[]")
+        String urlAsValidFileName = url
+            .replaceAll("/", "[]")
             .replaceAll("\\\\", "][")
             .replaceAll("\\?", "")
             .replaceAll(":", "")
@@ -211,8 +210,8 @@ public class ScraperService {
             .replaceAll("\\*", "")
             .replaceAll("\"", "");
 
-        int urlLimit = fixedUrl.length() > 180 ? 180 : fixedUrl.length();
-        String lengthLimitedUrl = fixedUrl.substring(0, urlLimit);
+        int urlLimit = Math.min(urlAsValidFileName.length(), 180);
+        String lengthLimitedUrl = urlAsValidFileName.substring(0, urlLimit);
 
         String fileName = workingDirectory + "/" + lengthLimitedUrl + "_page_" + currentPage.getPageId() + ".txt";
         File websiteFile = new File(fileName);
@@ -224,11 +223,11 @@ public class ScraperService {
         }
     }
 
-    private void saveWebsiteError(Website currentWebsite, Connection connection, String errorMessage) {
+    private void saveWebsiteError(Website currentWebsite, Connection.Response response, String errorMessage) {
         currentWebsite.setError(errorMessage);
         currentWebsite.setLastCheckedOn(LocalDateTime.now());
-        if (connection != null) {
-            currentWebsite.setLastResponseCode(connection.response().statusCode());
+        if (response != null) {
+            currentWebsite.setLastResponseCode(response.statusCode());
         }
         websiteRepository.save(currentWebsite);
     }
@@ -249,7 +248,7 @@ public class ScraperService {
             return BREAK;
         }
 
-        LocalTime startTime = LoggingHelper.logStartOfMethod("processWebsite");
+        LocalTime startTime = LoggingHelper.logStartOfMethod("Process website");
 
         String url = currentWebsite.getUrl();
         WebsiteContent websiteContent = websiteContentRepository.getFirstByWebsiteIdAndTimeProcessedIsNull(currentWebsite.getWebsiteId());
@@ -266,7 +265,8 @@ public class ScraperService {
         websiteContentRepository.save(websiteContent);
 
         LoggingHelper.logMessage("Processed website: " + currentWebsite.getUrl() + " (" + websites.size() + " left)");
-        LoggingHelper.logEndOfMethod("processWebsite", startTime);
+        LoggingHelper.logMessage("Websites left: " + websites.size());
+        LoggingHelper.logEndOfMethod("Process website", startTime);
 
         return CONTINUE;
     }
@@ -282,11 +282,15 @@ public class ScraperService {
         List<Website> savedNewWebsites = websiteRepository.saveAll(newWebsites);
 
         websitesByLinkTitle.replaceAll((link, website) -> {
-            Optional<Website> existingWebsite = existingWebsites.stream().filter(w -> w.getUrl().equals(website.getUrl())).findFirst();
+            Optional<Website> existingWebsite = existingWebsites.stream()
+                .filter(w -> w.getUrl().equals(website.getUrl()))
+                .findFirst();
             if (existingWebsite.isPresent()) {
                 return existingWebsite.get();
             }
-            Optional<Website> newWebsite = savedNewWebsites.stream().filter(w -> w.getUrl().equals(website.getUrl())).findFirst();
+            Optional<Website> newWebsite = savedNewWebsites.stream()
+                .filter(w -> w.getUrl().equals(website.getUrl()))
+                .findFirst();
             return newWebsite.orElse(website);
         });
 
@@ -313,11 +317,15 @@ public class ScraperService {
         pageRepository.saveAll(updatedExistingPages);
 
         pagesByLinkTitle.replaceAll((link, page) -> {
-            Optional<Page> existingPage = existingPages.stream().filter(p -> p.getUrl().equals(page.getUrl())).findFirst();
+            Optional<Page> existingPage = existingPages.stream()
+                .filter(p -> p.getUrl().equals(page.getUrl()))
+                .findFirst();
             if (existingPage.isPresent()) {
                 return existingPage.get();
             }
-            Optional<Page> newPage = savedNewPages.stream().filter(p -> p.getUrl().equals(page.getUrl())).findFirst();
+            Optional<Page> newPage = savedNewPages.stream()
+                .filter(p -> p.getUrl().equals(page.getUrl()))
+                .findFirst();
             return newPage.orElse(page);
         });
 
@@ -406,7 +414,7 @@ public class ScraperService {
         if (websitesMatchingUrl.size() > 1) {
             websitesMatchingUrl.forEach(website -> {
                 if (website.getWebsiteId() != earliestWebsite.getWebsiteId()) {
-                    LocalTime startTime = LoggingHelper.logStartOfMethod("fixDuplicateWebsite");
+                    LocalTime startTime = LoggingHelper.logStartOfMethod("Fix duplicate website");
 
                     List<Page> pages = pageRepository.findAllByWebsiteId(website.getWebsiteId());
                     pages.forEach(page -> {
@@ -431,7 +439,7 @@ public class ScraperService {
 
                     websiteRepository.delete(website);
 
-                    LoggingHelper.logEndOfMethod("fixDuplicateWebsite", startTime);
+                    LoggingHelper.logEndOfMethod("Fix duplicate website", startTime);
                 }
             });
         }
@@ -443,7 +451,7 @@ public class ScraperService {
         Page earliestPage = pagesMatchingUrl.get(0);
         pagesMatchingUrl.forEach(page -> {
             if (page.getPageId() != earliestPage.getPageId()) {
-                LocalTime startTime = LoggingHelper.logStartOfMethod("fixDuplicatePage");
+                LocalTime startTime = LoggingHelper.logStartOfMethod("Fix duplicate page");
 
                 pageToPageRepository.deleteAllByPageIdFrom(page.getPageId());
                 pageToPageRepository.findAllByPageIdTo(page.getPageId()).forEach(pageToPage -> {
@@ -453,7 +461,7 @@ public class ScraperService {
 
                 pageRepository.delete(page);
 
-                LoggingHelper.logEndOfMethod("fixDuplicatePage", startTime);
+                LoggingHelper.logEndOfMethod("Fix duplicate page", startTime);
             }
         });
 
@@ -461,7 +469,7 @@ public class ScraperService {
     }
 
     public void establishSubdomainRelationshipsForWebsite(Website website) {
-        LocalTime startTime = LoggingHelper.logStartOfMethod("establishSubdomainRelationshipsForWebsite");
+        LocalTime startTime = LoggingHelper.logStartOfMethod("Establish subdomain relationships for website");
 
         List<Website> websiteSubdomains = websiteRepository.getSubdomainsForUrl(website.getUrl());
         websiteSubdomains.forEach(subdomain -> {
@@ -469,6 +477,6 @@ public class ScraperService {
             subdomainOfRepository.save(subdomainRelationship);
         });
 
-        LoggingHelper.logEndOfMethod("establishSubdomainRelationshipsForWebsite", startTime);
+        LoggingHelper.logEndOfMethod("Establish subdomain relationships for website", startTime);
     }
 }

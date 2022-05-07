@@ -3,7 +3,11 @@
 * Install [maven](https://maven.apache.org/)
 * Install [Java 8](http://www.oracle.com/technetwork/java/javase/overview/index.html)
 
-### Vagrant
+### Docker
+* Install [docker](https://www.docker.com/products/docker-desktop/)
+* From a command line run `docker-compose up`
+
+### Vagrant (deprecated)
 
 A vagrant environment is included, this environment provides the postgresql server for local development.
 It also allows testing of Ansible deployment and provisioning scripts locally.

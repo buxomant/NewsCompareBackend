@@ -72,9 +72,11 @@ public class WebsiteScraperScheduler {
     }
 
     private void fetchWebsites() {
-        LocalTime startTime = LoggingHelper.logStartOfMethod("fetch websites (parallel)");
+        LocalTime startTime = LoggingHelper.logStartOfMethod("Fetch websites");
 
-        List<Website> nextUncheckedWebsites = websiteRepository.getNextDomesticWebsitesThatNeedFetching();
+        List<Website> nextUncheckedWebsites = websiteRepository.getNextWebsitesThatNeedFetching();
+
+        LoggingHelper.logMessage(String.format("Found %s websites that need fetching", nextUncheckedWebsites.size()));
 
         Map<Website, Document> successfulWebsites = nextUncheckedWebsites.parallelStream()
             .collect(Collectors.toMap(
@@ -89,13 +91,23 @@ public class WebsiteScraperScheduler {
             .forEach(entry -> scraperService.storeWebsiteContent(entry.getKey(), entry.getValue()));
 
         LoggingHelper.logEndOfMethod(
-            "fetch websites (got " + successfulWebsites.size() + " out of " + nextUncheckedWebsites.size() + " websites in parallel)",
+            "Fetch websites",
             startTime
         );
+        double percentageSuccessful = nextUncheckedWebsites.size() > 0
+            ? (double) successfulWebsites.size() / (double) nextUncheckedWebsites.size()
+            : 0;
+        String formattedPercentage = String.format("%.2f%%", percentageSuccessful * 100);
+        LoggingHelper.logMessage(String.format("" +
+            "Websites contacted: %s, Websites successful: %s [%s]",
+            nextUncheckedWebsites.size(),
+            successfulWebsites.size(),
+            formattedPercentage
+        ));
     }
 
-    private void fetchPages() throws IOException {
-        LocalTime startTimePageProcessing = LoggingHelper.logStartOfMethod("fetch pages (processing)");
+    private void fetchPages() {
+        LocalTime startTimePageProcessing = LoggingHelper.logStartOfMethod("Fetch pages");
 
         List<Page> nextUncheckedPages = pageRepository.getNextDomesticPagesThatNeedFetching();
 
@@ -166,19 +178,19 @@ public class WebsiteScraperScheduler {
         LoggingHelper.logEndOfMethod("fetch pages (got " + totalSuccessfulPages.get() + " out of " + totalPages.get() + " total pages)", startTimePages);
     }
 
-    private void processWebsites() throws IOException {
+    private void processWebsites() {
         if (processWebsitesJobEnabled) {
-            LocalTime startTime = LoggingHelper.logStartOfMethod("processWebsite");
+            LocalTime startTime = LoggingHelper.logStartOfMethod("Process websites");
 
             Queue<Website> nextUnprocessedWebsites = new LinkedList<>(
-                websiteRepository.getNextDomesticWebsitesThatNeedProcessing()
+                websiteRepository.getNextWebsitesThatNeedProcessing()
             );
 
             TimeLimitedRepeater
                 .repeat(() -> scraperService.processWebsite(nextUnprocessedWebsites))
                 .repeatWithDefaultTimeLimit();
 
-            LoggingHelper.logEndOfMethod("processWebsites", startTime);
+            LoggingHelper.logEndOfMethod("Process websites", startTime);
         }
     }
 
