@@ -23,17 +23,9 @@ public interface PageRepository extends JpaRepository<Page, Integer> {
     @Query(value = "SELECT * FROM page" +
     "  WHERE last_seen > now() - INTERVAL '1' HOUR" +
     "  AND split_part(url, '/', 1) IN " +
-    "    (SELECT url FROM website)" +
+    "    (SELECT url FROM website " +
+    "       WHERE content_type != 'SOCIAL_MEDIA'" +
+    "           AND type NOT IN ('REDIRECT', 'INDEXING_SERVICE'))" +
     "  LIMIT 1000", nativeQuery = true)
     List<Page> getNextPagesThatNeedFetching();
-
-    @Query(value = "SELECT * FROM page " +
-    "WHERE website_id IN (SELECT website_id FROM website WHERE type = 'DOMESTIC' AND content_type = 'NEWS') " +
-    "  AND url NOT LIKE '%/%' " +
-    "  AND url NOT LIKE '%#%' " +
-    "  AND url NOT LIKE 'www.%' " +
-    "  AND url NOT LIKE '%”%' " +
-    "  AND url LIKE '%.%' " +
-    "ORDER BY last_seen DESC ", nativeQuery = true)
-    List<Page> getPagesForTest();
 }

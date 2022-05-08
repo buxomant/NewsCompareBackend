@@ -109,27 +109,22 @@ public class WebsiteScraperScheduler {
 
         LoggingHelper.logMessage(String.format("Found %s pages that need fetching", nextUncheckedPages.size()));
 
-        Map<Page, String> pageToBaseUrls = nextUncheckedPages.stream()
-            .collect(Collectors.toMap(Function.identity(), page -> page.getUrl().split("/")[0]));
-
-        List<String> distinctBaseUrls = pageToBaseUrls.values().stream().distinct().collect(Collectors.toList());
+        Map<String, List<Page>> pagesByBaseUrl = nextUncheckedPages.stream()
+            .collect(Collectors.groupingBy(page -> page.getUrl().split("/")[0], Collectors.toList()));
 
         List<List<Page>> listsOfListsOfPages = new ArrayList<>();
 
-        while (pageToBaseUrls.size() > 0) {
-            List<Page> pages = distinctBaseUrls.stream().map(baseUrl -> {
-                Optional<Map.Entry<Page, String>> entryOptional = pageToBaseUrls.entrySet().stream()
-                    .filter(entry -> entry.getValue().equals(baseUrl))
-                    .findFirst();
-                entryOptional.ifPresent(stringPageEntry -> pageToBaseUrls.remove(stringPageEntry.getKey()));
-                return entryOptional;
-            })
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(Map.Entry::getKey)
+        while (pagesByBaseUrl.size() > 0) {
+            List<Page> pagesWithDistinctBaseUrls = pagesByBaseUrl.values().stream()
+                .map(pages -> pages.get(0))
                 .collect(Collectors.toList());
-
-            listsOfListsOfPages.add(pages);
+            pagesByBaseUrl.forEach((baseUrl, pages) -> {
+                pages.remove(0);
+            });
+            pagesByBaseUrl = pagesByBaseUrl.entrySet().stream()
+                .filter(entry -> entry.getValue().size() > 0)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            listsOfListsOfPages.add(pagesWithDistinctBaseUrls);
         }
 
         LoggingHelper.logEndOfMethod("Fetch pages (created lists)", startTimePageProcessing);
@@ -166,16 +161,14 @@ public class WebsiteScraperScheduler {
             totalSuccessfulPages.addAndGet(successfulPages.size());
 
             LoggingHelper.logEndOfMethod(
-                "Fetch pages (iteration)",
+                String.format(
+                    "Pages contacted: %s, Pages successful: %s [%s]",
+                    listOfPages.size(),
+                    successfulPages.size(),
+                    formatSuccessfulPercentageOfTotal(successfulPages.size(), listOfPages.size())
+                ),
                 startTimePageIteration
             );
-
-            LoggingHelper.logMessage(String.format(
-                "Pages contacted: %s, Pages successful: %s [%s]",
-                listOfPages.size(),
-                successfulPages.size(),
-                formatSuccessfulPercentageOfTotal(successfulPages.size(), listOfPages.size())
-            ));
         });
 
         LoggingHelper.logEndOfMethod("Fetch pages (total)", startTimePages);
