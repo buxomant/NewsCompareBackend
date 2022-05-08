@@ -2,6 +2,7 @@ package com.cbp.app.service;
 
 import com.cbp.app.helper.LoggingHelper;
 import com.cbp.app.helper.Ticker;
+import com.cbp.app.model.ProcessingResult;
 import com.cbp.app.model.ScraperResult;
 import com.cbp.app.model.SimpleLink;
 import com.cbp.app.model.db.*;
@@ -44,7 +45,7 @@ public class ScraperService {
     private final PageToPageRepository pageToPageRepository;
     private final SubdomainOfRepository subdomainOfRepository;
 
-    private static final int TIMEOUT_IN_MILLIS = 1;
+    private static final int TIMEOUT_IN_MILLIS = 1000;
 
     @Autowired
     public ScraperService(
@@ -234,10 +235,7 @@ public class ScraperService {
         if (currentWebsite == null) {
             return BREAK;
         }
-        LocalTime startTime = LoggingHelper.logStartOfMethod(String.format(
-            "Process website. Thread [%s]",
-            Thread.currentThread().getId())
-        );
+        LocalTime startTime = LocalTime.now();
 
         String url = currentWebsite.getUrl();
         WebsiteContent websiteContent = websiteContentRepository
@@ -246,7 +244,7 @@ public class ScraperService {
         Elements linkElements = webPage.select("[href]");
 
         List<SimpleLink> links = LinkService.domLinksToSimpleLinks(linkElements, url);
-        processLinks(links, currentWebsite, websiteContent);
+        ProcessingResult result = processLinks(links, currentWebsite, websiteContent);
 
         currentWebsite.setLastProcessedOn(LocalDateTime.now());
         websiteRepository.save(currentWebsite);
@@ -254,12 +252,18 @@ public class ScraperService {
         websiteContent.setTimeProcessed(LocalDateTime.now());
         websiteContentRepository.save(websiteContent);
 
-        LoggingHelper.logEndOfMethod(String.format("Processed website: [%s]", currentWebsite.getUrl()), startTime);
+        LoggingHelper.logEndOfMethod(String.format(
+            "Processed: [%s] [%s external links] [%s internal links]",
+            currentWebsite.getUrl(),
+            result.getNoOfExternalLinks(),
+            result.getNoOfInternalLinks()),
+            startTime
+        );
 
         return CONTINUE;
     }
 
-    private void processLinks(List<SimpleLink> links, Website currentWebsite, WebsiteContent websiteContent) {
+    private ProcessingResult processLinks(List<SimpleLink> links, Website currentWebsite, WebsiteContent websiteContent) {
         Map<SimpleLink, Website> websitesByLinkTitle = linksToWebsitesByLinkTitle(links);
 
         List<String> websiteUrls = websitesByLinkTitle.values().stream().map(Website::getUrl).collect(Collectors.toList());
@@ -327,6 +331,8 @@ public class ScraperService {
 
         List<PageToPage> pageToPages = createPageToPageLinks(pagesByLinkTitle, savedCurrentPage, pagesMatchingUrl, websiteContent);
         pageToPageRepository.saveAll(pageToPages);
+
+        return new ProcessingResult(websiteToWebsites.size(), pageToPages.size());
     }
 
     private static Page updateLastSeenToNow(Page page) {

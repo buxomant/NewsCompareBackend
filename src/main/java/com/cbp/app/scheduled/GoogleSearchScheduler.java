@@ -74,35 +74,38 @@ public class GoogleSearchScheduler {
             return;
         }
 
-        Integer startIndex = storedNextStartIndex.get();
-        GoogleSearchResponse response = googleSearchClient.fetchNextSearchResults(searchTerm.getTerm(), startIndex);
-        int currentStartIndex = response.getQueries().getRequest().get(0).getStartIndex();
-        int nextStartIndex = response.getItems() != null ? currentStartIndex + 10 : MAX_SEARCH_INDEX;
+        int totalNewWebsites = 0;
+        int startIndex = storedNextStartIndex.get();
 
-        List<Website> newWebsites = Collections.emptyList();
+        while (startIndex < MAX_SEARCH_INDEX) {
+            GoogleSearchResponse response = googleSearchClient.fetchNextSearchResults(searchTerm.getTerm(), startIndex);
+            int nextStartIndex = startIndex < MAX_SEARCH_INDEX ? startIndex + 10 : MAX_SEARCH_INDEX;
 
-        if (response.getItems() != null) {
-            List<String> sanitizedWebsiteUrls = response.getItems().stream()
-                .map(item -> LinkService.sanitizeLinkUrl(item.getDisplayLink()))
-                .collect(Collectors.toList());
-            List<String> existingWebsiteUrls = websiteRepository.findByUrlIn(sanitizedWebsiteUrls).stream()
-                .map(Website::getUrl)
-                .collect(Collectors.toList());
-            newWebsites = sanitizedWebsiteUrls.stream()
-                .filter(websiteUrl -> !existingWebsiteUrls.contains(websiteUrl))
-                .map(WebsiteService::createNewWebsite)
-                .collect(Collectors.toList());
-            websiteRepository.saveAll(newWebsites);
+            if (response.getItems() != null) {
+                List<String> sanitizedWebsiteUrls = response.getItems().stream()
+                    .map(item -> LinkService.sanitizeLinkUrl(item.getDisplayLink()))
+                    .collect(Collectors.toList());
+                List<String> existingWebsiteUrls = websiteRepository.findByUrlIn(sanitizedWebsiteUrls).stream()
+                    .map(Website::getUrl)
+                    .collect(Collectors.toList());
+                List<Website> newWebsites = sanitizedWebsiteUrls.stream()
+                    .filter(websiteUrl -> !existingWebsiteUrls.contains(websiteUrl))
+                    .map(WebsiteService::createNewWebsite)
+                    .collect(Collectors.toList());
+                totalNewWebsites += newWebsites.size();
+                websiteRepository.saveAll(newWebsites);
+            }
+
+            GoogleSearch googleSearch = new GoogleSearch(
+                startIndex,
+                searchTerm.getTermId(),
+                nextStartIndex,
+                LocalDateTime.now()
+            );
+            startIndex = nextStartIndex;
+            googleSearchRepository.save(googleSearch);
         }
-
-        GoogleSearch googleSearch = new GoogleSearch(
-            currentStartIndex,
-            searchTerm.getTermId(),
-            nextStartIndex,
-            LocalDateTime.now()
-        );
-        googleSearchRepository.save(googleSearch);
         LoggingHelper.logEndOfMethod("Find new websites", startTime);
-        LoggingHelper.logMessage(String.format("Found %s new websites", newWebsites.size()));
+        LoggingHelper.logMessage(String.format("Found %s new websites", totalNewWebsites));
     }
 }

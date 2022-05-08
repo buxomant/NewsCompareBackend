@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.*;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -37,8 +38,6 @@ public class WebsiteScraperScheduler {
     private final boolean processWebsitesJobEnabled;
     private final boolean fixDuplicateWebsitesJobEnabled;
     private final boolean establishSubdomainRelationshipsJobEnabled;
-
-    private static final int PAGE_LIST_NUMBER_THRESHOLD = 100;
 
     @Autowired
     public WebsiteScraperScheduler(
@@ -69,8 +68,8 @@ public class WebsiteScraperScheduler {
         if (fetchWebsitesJobEnabled) {
             googleSearchScheduler.findNewWebsites();
             fetchWebsites();
-            fetchPages();
             processWebsites();
+            fetchPages();
             indexService.indexAndCompareWebsites();
         }
     }
@@ -110,18 +109,19 @@ public class WebsiteScraperScheduler {
 
         LoggingHelper.logMessage(String.format("Found %s pages that need fetching", nextUncheckedPages.size()));
 
-        Map<Page, String> baseUrlToPages = nextUncheckedPages.stream()
+        Map<Page, String> pageToBaseUrls = nextUncheckedPages.stream()
             .collect(Collectors.toMap(Function.identity(), page -> page.getUrl().split("/")[0]));
 
-        List<String> distinctBaseUrls = baseUrlToPages.values().stream().distinct().collect(Collectors.toList());
+        List<String> distinctBaseUrls = pageToBaseUrls.values().stream().distinct().collect(Collectors.toList());
 
         List<List<Page>> listsOfListsOfPages = new ArrayList<>();
 
-        while (baseUrlToPages.size() > 0) {
+        while (pageToBaseUrls.size() > 0) {
             List<Page> pages = distinctBaseUrls.stream().map(baseUrl -> {
-                Optional<Map.Entry<Page, String>> entryOptional = baseUrlToPages.entrySet().stream()
-                    .filter(entry -> entry.getValue().equals(baseUrl)).findFirst();
-                entryOptional.ifPresent(stringPageEntry -> baseUrlToPages.remove(stringPageEntry.getKey()));
+                Optional<Map.Entry<Page, String>> entryOptional = pageToBaseUrls.entrySet().stream()
+                    .filter(entry -> entry.getValue().equals(baseUrl))
+                    .findFirst();
+                entryOptional.ifPresent(stringPageEntry -> pageToBaseUrls.remove(stringPageEntry.getKey()));
                 return entryOptional;
             })
                 .filter(Optional::isPresent)
@@ -129,12 +129,10 @@ public class WebsiteScraperScheduler {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
-            if (pages.size() >= PAGE_LIST_NUMBER_THRESHOLD) {
-                listsOfListsOfPages.add(pages);
-            }
+            listsOfListsOfPages.add(pages);
         }
 
-        LoggingHelper.logEndOfMethod("Fetch pages (done processing)", startTimePageProcessing);
+        LoggingHelper.logEndOfMethod("Fetch pages (created lists)", startTimePageProcessing);
 
         LocalTime startTimePages = LoggingHelper.logStartOfMethod("Fetch pages (parallel)");
         Random random = new Random();
@@ -143,11 +141,10 @@ public class WebsiteScraperScheduler {
         AtomicInteger totalSuccessfulPages = new AtomicInteger(0);
         listsOfListsOfPages.parallelStream().forEach(listOfPages -> {
 
-            LocalTime startTimePageIteration = LoggingHelper.logStartOfMethod("Fetch pages (iteration)");
+            LocalTime startTimePageIteration = LocalTime.now();
 
             try {
-                long sleepTime = random.nextInt(100) * 100;
-                LoggingHelper.logMessage(String.format("Thread %s sleeping for %s ms", Thread.currentThread().getId(), sleepTime));
+                long sleepTime = 100 + random.nextInt(100) * 10;
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
