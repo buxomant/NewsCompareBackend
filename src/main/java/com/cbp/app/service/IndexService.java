@@ -2,6 +2,7 @@ package com.cbp.app.service;
 
 import com.cbp.app.helper.LoggingHelper;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.ro.RomanianAnalyzer;
 import org.apache.lucene.analysis.shingle.ShingleAnalyzerWrapper;
 import org.apache.lucene.document.*;
@@ -48,7 +49,7 @@ public class IndexService {
 
         Directory directory = FSDirectory.open(Paths.get(workingDirectory));
 
-        Analyzer analyzer = new RomanianAnalyzer();
+        Analyzer analyzer = new EnglishAnalyzer();
         ShingleAnalyzerWrapper shingleAnalyzerWrapper = new ShingleAnalyzerWrapper(analyzer, 3, 3, " ", false, false, "_");
 
         IndexWriterConfig indexWriterConfig = new IndexWriterConfig(shingleAnalyzerWrapper);

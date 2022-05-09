@@ -28,6 +28,14 @@ public class LinkService {
             .get(0);
     }
 
+    public static boolean shouldSaveUrl(String linkUrl) {
+        return LinkService.isNotIPOrPhoneNumber(linkUrl)
+            && LinkService.isNotIgnorable(linkUrl)
+            && LinkService.isValidWebUrl(linkUrl)
+            && LinkService.isNotEmptyOrUseless(linkUrl)
+            && LinkService.isNotJavascriptFunction(linkUrl);
+    }
+
     public static String stripProtocolPrefix(String linkUrl) {
         return linkUrl
             .replace("https//", "")
@@ -122,12 +130,8 @@ public class LinkService {
     public static List<SimpleLink> domLinksToSimpleLinks(Elements linkElements, String currentWebsiteUrl) {
         return linkElements.parallelStream()
             .map(link -> new SimpleLink(link.text(), link.attr("href")))
-            .filter(link -> LinkService.isNotIPOrPhoneNumber(link.getLinkUrl()))
-            .filter(link -> LinkService.isNotIgnorable(link.getLinkUrl()))
-            .filter(link -> LinkService.isValidWebUrl(link.getLinkUrl()))
-            .filter(link -> LinkService.isNotEmptyOrUseless(link.getLinkUrl()))
-            .filter(link -> LinkService.isNotJavascriptFunction(link.getLinkUrl()))
             .map(link -> LinkService.convertLocalLinks(link, currentWebsiteUrl))
+            .filter(link -> LinkService.shouldSaveUrl(link.getLinkUrl()))
             .distinct()
             .collect(Collectors.toList());
     }

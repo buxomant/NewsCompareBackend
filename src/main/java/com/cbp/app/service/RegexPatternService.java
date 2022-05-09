@@ -177,12 +177,13 @@ public class RegexPatternService {
     );
     public static final Pattern miscIgnorablePattern = Pattern.compile(
         "(?:.*\\.)?schoolloop\\.com.*" +
-        "(?:.*\\.)?doubleclick\\.net.*" +
-        "(?:.*\\.)?adperfect\\.com.*"
+        "|(?:.*\\.)?doubleclick\\.net.*" +
+        "|(?:.*\\.)?adnxs\\.com.*" +
+        "|(?:.*\\.)?adperfect\\.com.*"
     );
     public static final Pattern indexingServicePattern = Pattern.compile(
         ".*google\\.co.*" +
-        "^google\\..*" +
+        "|^google\\..*" +
         "|.*alexa\\.com.*" +
         "|.*apple\\.com.*" +
         "|.*blogger\\.com.*" +

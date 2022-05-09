@@ -84,6 +84,7 @@ public class GoogleSearchScheduler {
             if (response.getItems() != null) {
                 List<String> sanitizedWebsiteUrls = response.getItems().stream()
                     .map(item -> LinkService.sanitizeLinkUrl(item.getDisplayLink()))
+                    .filter(LinkService::shouldSaveUrl)
                     .collect(Collectors.toList());
                 List<String> existingWebsiteUrls = websiteRepository.findByUrlIn(sanitizedWebsiteUrls).stream()
                     .map(Website::getUrl)
